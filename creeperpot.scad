@@ -1,24 +1,42 @@
-// ! make root
-// % transparent
-// * hide
-// # mark
+use <shapes.scad>
 
-// translate([20, 20, 20]) {}
-// difference() {}
+/* [Main pot dimensions] */
 
-//
-$fn = 100;
-
+// Outer cube size in mm
 cube_size = 70;
-outer_edge_radius = 2.5;
-inner_radius = 35;
-padding = 10;
-lid_height = 2;
-lid_overlap = 2;
+
+// Outer edge fillet radius
+outer_edge_radius = 1;
+
+// Main wall thickness
 wall_width = 4;
+
+/* [Lid and inner insert] */
+
+// Height of the outer lid rim
+lid_height = 2;
+
+// Depth of the lid recessed fit into the pot
+lid_overlap = 2;
+
+// Radius of the cylindrical lid insert
 insert_radius = 28;
+
+// Height of the cylindrical lid insert
 insert_height = 50;
+
+/* [Face pattern] */
+
+// Margin from the front wall edges to the face pattern
+padding = 10;
+
+// Tolerance offset for the face insert fit (FDM clearance)
 face_tolerance = 0.1;
+
+/* [Hidden] */
+$fn = 100;
+eps = 0.0001;
+face_print_gap = 3;
 
 function pot_pocket_width() = cube_size - 2 * wall_width;
 function pot_pochet_height() = cube_size - wall_width;
@@ -42,6 +60,7 @@ function face_pts(grid) =
 //   grow - size adjustment; opening is practically 1:1, insert is smaller by face_tolerance
 //   gap  - nose offset when laying out pieces on the build plate
 module face_solid(h, grow = 0, gap = 0) {
+    
     linear_extrude(height = h) offset(delta = grow) polygon(face_pts(eye_l_grid));
     linear_extrude(height = h) offset(delta = grow) polygon(face_pts(eye_r_grid));
     translate([0, -gap, 0])
@@ -52,20 +71,15 @@ module face_solid(h, grow = 0, gap = 0) {
 union() {
     color("green")
     difference() {
-        difference() {
-            difference() {
-                cube(cube_size);
-                translate([wall_width, wall_width, wall_width])
-                    cube([pot_pocket_width(), pot_pocket_width(), pot_pochet_height()]);
-            }
-            translate([lid_overlap, lid_overlap, lid_z()])
-                cube([lid_width(), lid_width(), lid_height]);
-            
-        }
+        rounded_cube(cube_size, outer_edge_radius);
         
+        translate([wall_width, wall_width, wall_width])
+            cube([pot_pocket_width(), pot_pocket_width(), pot_pochet_height() + 1]);
+        translate([lid_overlap, lid_overlap, lid_z()])
+            cube([lid_width(), lid_width(), lid_height + 1]);
         translate([0, face_depth(), 0])
             rotate([90, 0, 0])
-                face_solid(face_depth() + 0.1, grow = 0);
+                face_solid(face_depth() + 0.2, grow = eps);
     }
 }
 
@@ -85,8 +99,6 @@ translate([lid_overlap + cube_size, lid_overlap, lid_z()]) {
 }
 
 // FACE
-face_print_gap = 3;
-
 color("black")
 translate([cube_size * 2, 10, 0])
     face_solid(face_depth(), grow = -face_tolerance, gap = face_print_gap);
