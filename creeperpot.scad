@@ -1,5 +1,3 @@
-use <shapes.scad>
-
 /* [Main pot dimensions] */
 
 // Outer cube size in mm
@@ -37,6 +35,7 @@ face_tolerance = 0.1;
 $fn = 100;
 eps = 0.0001;
 face_print_gap = 3;
+print_layout = false;
 
 function pot_pocket_width() = cube_size - 2 * wall_width;
 function pot_pochet_height() = cube_size - wall_width;
@@ -44,6 +43,26 @@ function lid_z() = cube_size - lid_height;
 function lid_width() = cube_size - 2 * lid_overlap;
 function face_depth() = 1;
 function face_sub_edge() = (cube_size - 2 * padding) / 8;
+
+// SHAPES
+module rounded_cube(size, r, center = false) {
+    s = is_list(size) ? size : [size, size, size];
+    shift = center ? [-s[0]/2, -s[1]/2, -s[2]/2] : [0, 0, 0];
+
+    translate(shift) {
+        hull() {
+            translate([r, r, r]) sphere(r = r);
+            translate([s[0] - r, r, r]) sphere(r = r);
+            translate([r, s[1] - r, r]) sphere(r = r);
+            translate([s[0] - r, s[1] - r, r]) sphere(r = r);
+
+            translate([r, r, s[2] - r]) sphere(r = r);
+            translate([s[0] - r, r, s[2] - r]) sphere(r = r);
+            translate([r, s[1] - r, s[2] - r]) sphere(r = r);
+            translate([s[0] - r, s[1] - r, s[2] - r]) sphere(r = r);
+        }
+    }
+}
 
 // FACE
 eye_l_grid = [[1, 5], [3, 5], [3, 7], [1, 7]];
@@ -68,11 +87,11 @@ module face_solid(h, grow = 0, gap = 0) {
 }
 
 // POT
-union() {
+module pot() {
     color("green")
     difference() {
         rounded_cube(cube_size, outer_edge_radius);
-        
+
         translate([wall_width, wall_width, wall_width])
             cube([pot_pocket_width(), pot_pocket_width(), pot_pochet_height() + 1]);
         translate([lid_overlap, lid_overlap, lid_z()])
@@ -83,10 +102,12 @@ union() {
     }
 }
 
-
 // LID
-color("green")
-translate([lid_overlap + cube_size, lid_overlap, lid_z()]) {
+// Built in print orientation: insert bottom at z = 0, lid plate on top
+// (the plate overhangs the insert, so it needs supports).
+module lid() {
+    color("green")
+    translate([0, 0, insert_height - lid_height])
     difference() {
         union() {
             cube([lid_width(), lid_width(), lid_height]);
@@ -99,6 +120,36 @@ translate([lid_overlap + cube_size, lid_overlap, lid_z()]) {
 }
 
 // FACE
-color("black")
-translate([cube_size * 2, 10, 0])
-    face_solid(face_depth(), grow = -face_tolerance, gap = face_print_gap);
+module face_inlay(gap = face_print_gap) {
+    color("black")
+        face_solid(face_depth(), grow = -face_tolerance, gap = gap);
+}
+
+// MAKERWORLD PLATES
+// Parametric Model Maker exports each mw_plate_N() as a separate plate in the 3MF.
+// mw_assembly_view() is used only for the on-site preview and is not exported.
+module mw_plate_1() { pot(); }
+module mw_plate_2() { lid(); }
+module mw_plate_3() { face_inlay(); }
+
+module mw_assembly_view() {
+    pot();
+    translate([lid_overlap, lid_overlap, lid_z() - insert_height + lid_height])
+        lid();
+    translate([0, face_depth(), 0])
+        rotate([90, 0, 0])
+            face_inlay(gap = 0);
+}
+
+// MakerWorld adds top-level geometry to the Assemble View and to every plate, so nothing
+// may be rendered at top level there (it renders with $preview = false).
+// Local use: F5 preview shows the assembly; for a print export use -D print_layout=true.
+// Each part is a separate top-level object, so with the lazy-union feature enabled
+// the exported 3MF contains them as separate objects.
+if ($preview && !print_layout) {
+    mw_assembly_view();
+} else if (print_layout) {
+    pot();
+    translate([cube_size + 10, 0, 0]) lid();
+    translate([cube_size + lid_width() + 20, 0, 0]) face_inlay();
+}
