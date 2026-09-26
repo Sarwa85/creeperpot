@@ -1,7 +1,7 @@
 /* [Main pot dimensions] */
 
 // Outer cube size in mm
-cube_size = 70;
+cube_size = 74;
 
 // Outer edge fillet radius
 outer_edge_radius = 1;
@@ -17,11 +17,11 @@ lid_height = 2;
 // Depth of the lid recessed fit into the pot
 lid_overlap = 2;
 
-// Radius of the cylindrical lid insert
+// Inner radius of the cylindrical lid insert
 insert_radius = 28;
 
-// Height of the cylindrical lid insert
-insert_height = 50;
+// Inner depth of the cylindrical lid insert, measured from the top of the lid
+insert_depth = 50;
 
 /* [Face pattern] */
 
@@ -35,12 +35,13 @@ face_tolerance = 0.1;
 $fn = 100;
 eps = 0.0001;
 face_print_gap = 3;
-print_layout = false;
+print_layout = true;
 
 function pot_pocket_width() = cube_size - 2 * wall_width;
 function pot_pochet_height() = cube_size - wall_width;
 function lid_z() = cube_size - lid_height;
 function lid_width() = cube_size - 2 * lid_overlap;
+function insert_height() = insert_depth + wall_width;
 function face_depth() = 1;
 function face_sub_edge() = (cube_size - 2 * padding) / 8;
 
@@ -107,15 +108,15 @@ module pot() {
 // (the plate overhangs the insert, so it needs supports).
 module lid() {
     color("green")
-    translate([0, 0, insert_height - lid_height])
+    translate([0, 0, insert_height() - lid_height])
     difference() {
         union() {
             cube([lid_width(), lid_width(), lid_height]);
-            translate([lid_width() / 2, lid_width() / 2, -insert_height + lid_height])
-                cylinder(insert_height, insert_radius, insert_radius);
+            translate([lid_width() / 2, lid_width() / 2, -insert_height() + lid_height])
+                cylinder(insert_height(), insert_radius + wall_width, insert_radius + wall_width);
         }
-        translate([lid_width() / 2, lid_width() / 2, -insert_height + lid_height + wall_width])
-            cylinder(insert_height - wall_width, insert_radius - wall_width, insert_radius - wall_width);
+        translate([lid_width() / 2, lid_width() / 2, -insert_height() + lid_height + wall_width])
+            cylinder(insert_height() - wall_width, insert_radius, insert_radius);
     }
 }
 
@@ -134,7 +135,7 @@ module mw_plate_3() { face_inlay(); }
 
 module mw_assembly_view() {
     pot();
-    translate([lid_overlap, lid_overlap, lid_z() - insert_height + lid_height])
+    translate([lid_overlap, lid_overlap, lid_z() - insert_height() + lid_height])
         lid();
     translate([0, face_depth(), 0])
         rotate([90, 0, 0])
